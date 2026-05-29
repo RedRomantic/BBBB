@@ -28,6 +28,18 @@ public class BoolToVisibilityConverter : IValueConverter
 }
 
 /// <summary>
+/// 布尔值取反转换器
+/// </summary>
+public class InverseBoolConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return value is bool b && !b;
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+}
+
+/// <summary>
 /// 字符串非空转可见性
 /// </summary>
 public class StringToVisibilityConverter : IValueConverter

@@ -68,6 +68,10 @@ public partial class SettingsWindow : Window
         {
             _mainViewModel.SelectedInterval = viewModel.SelectedInterval;
             _mainViewModel.ContractCount = viewModel.ContractCount;
+
+            // 保存飞书通知设置
+            viewModel.SaveFeishuSettings();
+
             _onSave?.Invoke(viewModel);
         }
 

@@ -2,7 +2,10 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using System.Windows.Input;
 using PanoramaFuturesAI.Models;
+using PanoramaFuturesAI.Services;
 
 namespace PanoramaFuturesAI.ViewModels;
 
@@ -26,6 +29,21 @@ public class SettingsViewModel : INotifyPropertyChanged
         field = value;
         OnPropertyChanged(propertyName);
         return true;
+    }
+
+    #endregion
+
+    #region 构造函数
+
+    public SettingsViewModel()
+    {
+        // 从通知服务加载配置
+        var config = NotificationService.Instance.Config;
+        _feishuWebhookUrl = config.FeishuWebhookUrl;
+        _feishuWebhookEnabled = config.FeishuWebhookEnabled;
+        _notifyOnStrategyComplete = config.NotifyOnStrategyComplete;
+
+        TestFeishuCommand = new RelayCommand(async () => await TestFeishuWebhookAsync());
     }
 
     #endregion
@@ -70,4 +88,130 @@ public class SettingsViewModel : INotifyPropertyChanged
     }
 
     #endregion
+
+    #region 飞书通知设置
+
+    private string _feishuWebhookUrl = "";
+    public string FeishuWebhookUrl
+    {
+        get => _feishuWebhookUrl;
+        set => SetProperty(ref _feishuWebhookUrl, value);
+    }
+
+    private bool _feishuWebhookEnabled;
+    public bool FeishuWebhookEnabled
+    {
+        get => _feishuWebhookEnabled;
+        set => SetProperty(ref _feishuWebhookEnabled, value);
+    }
+
+    private bool _notifyOnStrategyComplete = true;
+    public bool NotifyOnStrategyComplete
+    {
+        get => _notifyOnStrategyComplete;
+        set => SetProperty(ref _notifyOnStrategyComplete, value);
+    }
+
+    private bool _isTestingFeishu;
+    public bool IsTestingFeishu
+    {
+        get => _isTestingFeishu;
+        set => SetProperty(ref _isTestingFeishu, value);
+    }
+
+    private string _feishuTestResult = "";
+    public string FeishuTestResult
+    {
+        get => _feishuTestResult;
+        set => SetProperty(ref _feishuTestResult, value);
+    }
+
+    public ICommand TestFeishuCommand { get; }
+
+    private async Task TestFeishuWebhookAsync()
+    {
+        if (string.IsNullOrWhiteSpace(FeishuWebhookUrl))
+        {
+            FeishuTestResult = "请先输入 Webhook URL";
+            return;
+        }
+
+        IsTestingFeishu = true;
+        FeishuTestResult = "正在测试...";
+
+        try
+        {
+            var (success, message) = await NotificationService.Instance.TestFeishuWebhookAsync(FeishuWebhookUrl);
+            FeishuTestResult = message;
+        }
+        catch (Exception ex)
+        {
+            FeishuTestResult = $"测试异常: {ex.Message}";
+        }
+        finally
+        {
+            IsTestingFeishu = false;
+        }
+    }
+
+    /// <summary>
+    /// 保存飞书通知设置
+    /// </summary>
+    public void SaveFeishuSettings()
+    {
+        NotificationService.Instance.UpdateFeishuWebhook(FeishuWebhookUrl, FeishuWebhookEnabled);
+        NotificationService.Instance.Config.NotifyOnStrategyComplete = NotifyOnStrategyComplete;
+        NotificationService.Instance.SaveConfig();
+    }
+
+    #endregion
+}
+
+/// <summary>
+/// 简单的 RelayCommand 实现
+/// </summary>
+public class RelayCommand : ICommand
+{
+    private readonly Action? _execute;
+    private readonly Func<Task>? _executeAsync;
+    private readonly Func<bool>? _canExecute;
+    private bool _isExecuting;
+
+    public RelayCommand(Action execute, Func<bool>? canExecute = null)
+    {
+        _execute = execute;
+        _canExecute = canExecute;
+    }
+
+    public RelayCommand(Func<Task> executeAsync, Func<bool>? canExecute = null)
+    {
+        _executeAsync = executeAsync;
+        _canExecute = canExecute;
+    }
+
+    public event EventHandler? CanExecuteChanged;
+
+    public bool CanExecute(object? parameter) => !_isExecuting && (_canExecute?.Invoke() ?? true);
+
+    public async void Execute(object? parameter)
+    {
+        if (_executeAsync != null)
+        {
+            _isExecuting = true;
+            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            try
+            {
+                await _executeAsync();
+            }
+            finally
+            {
+                _isExecuting = false;
+                CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+        else
+        {
+            _execute?.Invoke();
+        }
+    }
 }

@@ -337,6 +337,15 @@ public class MainViewModel : ViewModelBase, IDisposable
                     SelectedTabIndex = 0;
                     LoadingStatus = $"策略生成完成 (动作:{result.Action}, 风险:{result.RiskLevel}, 置信:{result.Confidence})";
                     System.Diagnostics.Debug.WriteLine($"[DEBUG] 策略解析成功 - Action:{result.Action}, RiskLevel:{result.RiskLevel}, Confidence:{result.Confidence}");
+
+                    // 发送飞书通知
+                    _ = Task.Run(async () =>
+                    {
+                        await Services.NotificationService.Instance.SendStrategyNotificationAsync(
+                            result.ActionText,
+                            result.RiskLevel,
+                            result.StrategySummary);
+                    });
                 }
                 else
                 {
