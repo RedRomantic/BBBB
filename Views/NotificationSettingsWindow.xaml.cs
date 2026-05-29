@@ -60,6 +60,19 @@ public partial class NotificationSettingsWindow : Window
         _viewModel.IsScheduledMode = config.PushMode == "Scheduled";
         _viewModel.IsManualMode = !_viewModel.IsScheduledMode;
 
+        // 加载图片推送配置
+        _viewModel.ImageApiKey = config.ImageApiKey;
+        _viewModel.ImageSecretKey = config.ImageSecretKey;
+        _viewModel.ImageReceiverId = config.ImageReceiverId;
+        _viewModel.ImageReceiverIdType = config.ImageReceiverIdType;
+        _viewModel.ImagePushEnabled = config.ImagePushEnabled;
+
+        // 同步 UI 绑定
+        ImageApiKeyBox.Text = _viewModel.ImageApiKey;
+        ImageSecretKeyBox.Text = _viewModel.ImageSecretKey;
+        ImageReceiverIdBox.Text = _viewModel.ImageReceiverId;
+        ImagePushEnabledCheckBox.IsChecked = _viewModel.ImagePushEnabled;
+
         // 解析定时设置
         if (!string.IsNullOrEmpty(config.ScheduledTime))
         {
@@ -129,7 +142,6 @@ public partial class NotificationSettingsWindow : Window
     {
         var now = DateTime.Now;
         var scheduledHour = 9;
-        var interval = "Daily";
 
         if (!string.IsNullOrEmpty(config.ScheduledTime))
         {
@@ -142,7 +154,7 @@ public partial class NotificationSettingsWindow : Window
 
         var baseTime = new DateTime(now.Year, now.Month, now.Day, scheduledHour, 0, 0);
 
-        switch (interval)
+        switch (config.PushInterval)
         {
             case "Hourly":
                 return now.AddHours(1);
@@ -204,6 +216,89 @@ public partial class NotificationSettingsWindow : Window
         }
     }
 
+    private void TestScreenshot_Click(object sender, RoutedEventArgs e)
+    {
+        TestScreenshotButton.IsEnabled = false;
+        ScreenshotPathText.Text = "正在截图...";
+
+        try
+        {
+            // 获取主窗口
+            var mainWindow = App.MainWindowInstance;
+
+            // 获取策略内容面板
+            FrameworkElement? elementToCapture = null;
+            if (mainWindow?.StrategyContentPanelElement != null)
+            {
+                elementToCapture = mainWindow.StrategyContentPanelElement;
+            }
+
+            if (elementToCapture == null)
+            {
+                ScreenshotPathText.Text = "错误：无法获取策略看板控件，请先生成一次策略";
+                ScreenshotPathText.Foreground = System.Windows.Media.Brushes.OrangeRed;
+                return;
+            }
+
+            // 生成截图（使用实际尺寸）
+            var imagePath = PanoramaFuturesAI.Utils.ScreenCapture.GetTempImagePath();
+            PanoramaFuturesAI.Utils.ScreenCapture.CaptureToFile(elementToCapture, imagePath, 2);
+
+            ScreenshotPathText.Text = $"截图已保存:\n{imagePath}";
+            ScreenshotPathText.Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(63, 185, 80));
+        }
+        catch (Exception ex)
+        {
+            ScreenshotPathText.Text = $"截图失败: {ex.Message}";
+            ScreenshotPathText.Foreground = System.Windows.Media.Brushes.OrangeRed;
+        }
+        finally
+        {
+            TestScreenshotButton.IsEnabled = true;
+        }
+    }
+
+    private async void TestImageMessage_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_viewModel.ImageApiKey) ||
+            string.IsNullOrWhiteSpace(_viewModel.ImageSecretKey) ||
+            string.IsNullOrWhiteSpace(_viewModel.ImageReceiverId))
+        {
+            TestResultText.Text = "请先填写 App ID、App Secret 和接收者 ID";
+            TestResultText.Foreground = System.Windows.Media.Brushes.Orange;
+            return;
+        }
+
+        TestImageButton.IsEnabled = false;
+        TestResultText.Text = "正在测试...";
+        TestResultText.Foreground = System.Windows.Media.Brushes.Gray;
+
+        try
+        {
+            // 保存配置
+            NotificationService.Instance.Config.ImageApiKey = _viewModel.ImageApiKey;
+            NotificationService.Instance.Config.ImageSecretKey = _viewModel.ImageSecretKey;
+            NotificationService.Instance.Config.ImageReceiverId = _viewModel.ImageReceiverId;
+
+            var (success, message) = await NotificationService.Instance.TestImageMessageAsync();
+
+            TestResultText.Text = message;
+            TestResultText.Foreground = success
+                ? System.Windows.Media.Brushes.LimeGreen
+                : System.Windows.Media.Brushes.OrangeRed;
+        }
+        catch (Exception ex)
+        {
+            TestResultText.Text = $"测试异常: {ex.Message}";
+            TestResultText.Foreground = System.Windows.Media.Brushes.OrangeRed;
+        }
+        finally
+        {
+            TestImageButton.IsEnabled = true;
+        }
+    }
+
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
         DialogResult = false;
@@ -235,6 +330,13 @@ public partial class NotificationSettingsWindow : Window
         config.ScheduledTime = $"{selectedHour}:00";
         config.PushInterval = pushInterval;
 
+        // 保存图片推送配置
+        config.ImageApiKey = ImageApiKeyBox.Text;
+        config.ImageSecretKey = ImageSecretKeyBox.Text;
+        config.ImageReceiverId = ImageReceiverIdBox.Text;
+        config.ImageReceiverIdType = ImageReceiverIdTypeCombo.SelectedValue?.ToString() ?? "open_id";
+        config.ImagePushEnabled = ImagePushEnabledCheckBox.IsChecked ?? false;
+
         NotificationService.Instance.SaveConfig();
 
         // 启动或停止定时器
@@ -263,4 +365,11 @@ public class NotificationViewModel
     public bool IsScheduledMode { get; set; }
     public string SelectedHour { get; set; } = "09";
     public string SelectedInterval { get; set; } = "每天";
+
+    // 图片推送配置
+    public string ImageApiKey { get; set; } = "";
+    public string ImageSecretKey { get; set; } = "";
+    public string ImageReceiverId { get; set; } = "";
+    public string ImageReceiverIdType { get; set; } = "open_id";
+    public bool ImagePushEnabled { get; set; }
 }

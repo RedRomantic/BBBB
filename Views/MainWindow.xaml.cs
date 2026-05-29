@@ -16,10 +16,15 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
 
+    public FrameworkElement? StrategyPanelElement => StrategyPanel;
+    public FrameworkElement? StrategyContentPanelElement => StrategyContentPanel;
+
     public MainWindow()
     {
         InitializeComponent();
+        App.MainWindowInstance = this;
         _viewModel = new MainViewModel();
+        _viewModel.MainView = this;
         DataContext = _viewModel;
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;

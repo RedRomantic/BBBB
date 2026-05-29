@@ -8,6 +8,11 @@ namespace PanoramaFuturesAI;
 /// </summary>
 public partial class App : Application
 {
+    /// <summary>
+    /// 主窗口实例引用
+    /// </summary>
+    public static Views.MainWindow? MainWindowInstance { get; set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);

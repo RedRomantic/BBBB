@@ -246,7 +246,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- A区: AI策略输出屏 -->
-        <Border Grid.Column="0" Style="{StaticResource PanelBorder}">
+        <Border Grid.Column="0" Style="{StaticResource PanelBorder}" x:Name="StrategyPanel">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -287,7 +287,7 @@
                     <TabItem Header="📊 量化策略看板">
                         <Border Background="#0D1117" CornerRadius="0,0,6,6" Padding="16">
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <StackPanel>
+                                <StackPanel x:Name="StrategyContentPanel">
                                     <!-- 动作与策略总结 - 顶部大字显示 -->
                                     <Border Background="#21262D" CornerRadius="8" Padding="20" Margin="0,0,0,16">
                                         <StackPanel HorizontalAlignment="Center">

@@ -89,6 +89,16 @@ public class MainViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>
+    /// 主窗口引用（用于截图）
+    /// </summary>
+    public Views.MainWindow? MainView { get; set; }
+
+    /// <summary>
+    /// 策略看板内容面板引用（用于截图）
+    /// </summary>
+    public FrameworkElement? StrategyContentPanel => MainView?.StrategyContentPanelElement;
+
+    /// <summary>
     /// TabControl 当前选中的 Tab 索引
     /// 0 = 量化策略看板
     /// 1 = AI推演原文
@@ -338,13 +348,34 @@ public class MainViewModel : ViewModelBase, IDisposable
                     LoadingStatus = $"策略生成完成 (动作:{result.Action}, 风险:{result.RiskLevel}, 置信:{result.Confidence})";
                     System.Diagnostics.Debug.WriteLine($"[DEBUG] 策略解析成功 - Action:{result.Action}, RiskLevel:{result.RiskLevel}, Confidence:{result.Confidence}");
 
-                    // 发送飞书通知
+                    // 发送飞书通知（包含截图）
                     _ = Task.Run(async () =>
                     {
+                        var imagePath = "";
+                        try
+                        {
+                            // 等待 UI 渲染完成（图表需要时间渲染）
+                            await Task.Delay(1000);
+
+                            // 获取策略内容面板进行截图
+                            var contentPanel = StrategyContentPanel;
+                            if (contentPanel != null)
+                            {
+                                imagePath = PanoramaFuturesAI.Utils.ScreenCapture.GetTempImagePath();
+                                PanoramaFuturesAI.Utils.ScreenCapture.CaptureToFile(contentPanel, imagePath, 2);
+                                System.Diagnostics.Debug.WriteLine($"[DEBUG] 策略看板截图已保存: {imagePath}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[DEBUG] 截图失败: {ex.Message}");
+                        }
+
                         await Services.NotificationService.Instance.SendStrategyNotificationAsync(
                             result.ActionText,
                             result.RiskLevel,
-                            result.StrategySummary);
+                            result.StrategySummary,
+                            imagePath);
                     });
                 }
                 else
