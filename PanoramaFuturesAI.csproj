@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon></ApplicationIcon>
+    <AssemblyName>PanoramaFuturesAI</AssemblyName>
+    <RootNamespace>PanoramaFuturesAI</RootNamespace>
+    <Version>1.0.0</Version>
+    <Company>Panorama Systems</Company>
+    <Product>全景合约市场 AI 决策系统</Product>
+    <Description>基于 AI 的加密货币合约市场分析与决策系统</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <PackageReference Include="LiveChartsCore.SkiaSharpView.WPF" Version="2.0.0-rc2" />
+  </ItemGroup>
+
+</Project>

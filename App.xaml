@@ -1,0 +1,9 @@
+<Application x:Class="PanoramaFuturesAI.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:PanoramaFuturesAI.Converters"
+             StartupUri="Views/MainWindow.xaml">
+    <Application.Resources>
+        <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+    </Application.Resources>
+</Application>
