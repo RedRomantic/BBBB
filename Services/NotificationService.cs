@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PanoramaFuturesAI.Services;
@@ -17,6 +18,8 @@ public class NotificationService
     private NotificationConfig _config;
     private static NotificationService? _instance;
     private static readonly object _lock = new();
+    private Timer? _scheduledTimer;
+    private bool _isScheduledRunning;
 
     public static NotificationService Instance
     {
@@ -44,6 +47,12 @@ public class NotificationService
 
         _configFilePath = Path.Combine(appDataPath, "notification_config.json");
         _config = LoadConfig();
+
+        // 自动启动定时推送（如果已启用）
+        if (_config.FeishuWebhookEnabled && _config.PushMode == "Scheduled")
+        {
+            StartScheduledPush();
+        }
     }
 
     /// <summary>
@@ -100,6 +109,135 @@ public class NotificationService
         _config.FeishuWebhookUrl = webhookUrl;
         _config.FeishuWebhookEnabled = enabled;
         SaveConfig();
+    }
+
+    /// <summary>
+    /// 启动定时推送
+    /// </summary>
+    public void StartScheduledPush()
+    {
+        if (_isScheduledRunning) return;
+
+        var intervalMs = GetIntervalMilliseconds(_config.PushInterval);
+        if (intervalMs <= 0) intervalMs = 86400000; // 默认24小时
+
+        _scheduledTimer = new Timer(async _ =>
+        {
+            await ExecuteScheduledPushAsync();
+        }, null, GetDelayToNextPush(), intervalMs);
+
+        _isScheduledRunning = true;
+        System.Diagnostics.Debug.WriteLine($"[Notification] 定时推送已启动，间隔: {_config.PushInterval}");
+    }
+
+    /// <summary>
+    /// 停止定时推送
+    /// </summary>
+    public void StopScheduledPush()
+    {
+        _scheduledTimer?.Dispose();
+        _scheduledTimer = null;
+        _isScheduledRunning = false;
+        System.Diagnostics.Debug.WriteLine("[Notification] 定时推送已停止");
+    }
+
+    private int GetDelayToNextPush()
+    {
+        var now = DateTime.Now;
+        var scheduledHour = 9;
+
+        if (!string.IsNullOrEmpty(_config.ScheduledTime))
+        {
+            var parts = _config.ScheduledTime.Split(':');
+            if (parts.Length >= 1 && int.TryParse(parts[0], out int hour))
+            {
+                scheduledHour = hour;
+            }
+        }
+
+        var nextPush = new DateTime(now.Year, now.Month, now.Day, scheduledHour, 0, 0);
+        if (nextPush <= now)
+        {
+            nextPush = nextPush.AddDays(1);
+        }
+
+        return (int)(nextPush - now).TotalMilliseconds;
+    }
+
+    private int GetIntervalMilliseconds(string interval)
+    {
+        return interval switch
+        {
+            "Hourly" => 3600000,
+            "Every4Hours" => 14400000,
+            "Every6Hours" => 21600000,
+            "Every12Hours" => 43200000,
+            "Daily" => 86400000,
+            _ => 86400000
+        };
+    }
+
+    private async Task ExecuteScheduledPushAsync()
+    {
+        if (!_config.FeishuWebhookEnabled || string.IsNullOrWhiteSpace(_config.FeishuWebhookUrl))
+            return;
+
+        try
+        {
+            var message = new FeishuWebhookMessage
+            {
+                MsgType = "interactive",
+                Card = new FeishuCard
+                {
+                    Header = new FeishuCardHeader
+                    {
+                        Title = new FeishuCardTitle { Tag = "plain_text", Content = "定时推送通知" },
+                        Template = "blue"
+                    },
+                    Elements = new FeishuCardElement[]
+                    {
+                        new FeishuCardElement
+                        {
+                            Tag = "div",
+                            Content = $"**定时推送**: 系统运行正常\n请及时查看最新策略分析"
+                        },
+                        new FeishuCardElement
+                        {
+                            Tag = "hr"
+                        },
+                        new FeishuCardElement
+                        {
+                            Tag = "note",
+                            Elements = new FeishuCardElement[]
+                            {
+                                new FeishuCardElement { Tag = "plain_text", Content = $"推送时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}" }
+                            }
+                        }
+                    }
+                }
+            };
+
+            var json = JsonSerializer.Serialize(message, new JsonSerializerOptions
+            {
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            });
+
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await httpClient.PostAsync(_config.FeishuWebhookUrl, content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _config.LastPushTime = DateTime.Now;
+                SaveConfig();
+                LogService.Instance.AddInfo("Feishu", "定时推送发送成功");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Instance.AddApiError("Feishu", $"定时推送失败: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -232,9 +370,24 @@ public class NotificationConfig
     public bool FeishuWebhookEnabled { get; set; } = false;
 
     /// <summary>
-    /// 是否在策略生成完成后发送通知
+    /// 推送模式: Manual（手动）或 Scheduled（定时）
     /// </summary>
-    public bool NotifyOnStrategyComplete { get; set; } = true;
+    public string PushMode { get; set; } = "Manual";
+
+    /// <summary>
+    /// 定时推送时间 (HH:mm 格式)
+    /// </summary>
+    public string ScheduledTime { get; set; } = "09:00";
+
+    /// <summary>
+    /// 推送间隔: Hourly, Every4Hours, Every6Hours, Every12Hours, Daily
+    /// </summary>
+    public string PushInterval { get; set; } = "Daily";
+
+    /// <summary>
+    /// 上次推送时间
+    /// </summary>
+    public DateTime? LastPushTime { get; set; }
 }
 
 /// <summary>

@@ -41,7 +41,6 @@ public class SettingsViewModel : INotifyPropertyChanged
         var config = NotificationService.Instance.Config;
         _feishuWebhookUrl = config.FeishuWebhookUrl;
         _feishuWebhookEnabled = config.FeishuWebhookEnabled;
-        _notifyOnStrategyComplete = config.NotifyOnStrategyComplete;
 
         TestFeishuCommand = new RelayCommand(async () => await TestFeishuWebhookAsync());
     }
@@ -105,13 +104,6 @@ public class SettingsViewModel : INotifyPropertyChanged
         set => SetProperty(ref _feishuWebhookEnabled, value);
     }
 
-    private bool _notifyOnStrategyComplete = true;
-    public bool NotifyOnStrategyComplete
-    {
-        get => _notifyOnStrategyComplete;
-        set => SetProperty(ref _notifyOnStrategyComplete, value);
-    }
-
     private bool _isTestingFeishu;
     public bool IsTestingFeishu
     {
@@ -160,8 +152,6 @@ public class SettingsViewModel : INotifyPropertyChanged
     public void SaveFeishuSettings()
     {
         NotificationService.Instance.UpdateFeishuWebhook(FeishuWebhookUrl, FeishuWebhookEnabled);
-        NotificationService.Instance.Config.NotifyOnStrategyComplete = NotifyOnStrategyComplete;
-        NotificationService.Instance.SaveConfig();
     }
 
     #endregion

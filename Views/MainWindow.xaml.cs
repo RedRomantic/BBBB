@@ -44,9 +44,16 @@ public partial class MainWindow : Window
         });
         settingsWindow.Owner = this;
         settingsWindow.ShowDialog();
-        
+
         // 刷新模型配置
         _viewModel.RefreshModelConfig();
+    }
+
+    private void OpenNotificationSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var notificationWindow = new NotificationSettingsWindow();
+        notificationWindow.Owner = this;
+        notificationWindow.ShowDialog();
     }
 
     private async void Refresh_Click(object sender, RoutedEventArgs e)
